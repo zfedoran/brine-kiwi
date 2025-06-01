@@ -1,0 +1,10 @@
+[package]
+name = "brine-kiwi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kiwi-schema = "0.2.1"
+lazy_static = "1.5.0"
+regex = "1.11.1"
+serde_json = "1.0.138"
