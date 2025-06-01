@@ -1,5 +1,7 @@
 # brine-kiwi
 
+This is a Rust-native implementation of the Kiwi schema, decoder, encoder, compiler and rust code generator. 
+
 Kiwi is a schema-based binary format for efficiently encoding trees of data.
 It's inspired by Google's [Protocol Buffer](https://developers.google.com/protocol-buffers/) format but is simpler, has a more compact encoding, and has better support for optional fields.
 
