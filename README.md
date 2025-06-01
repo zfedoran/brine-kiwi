@@ -1,5 +1,6 @@
 # brine-kiwi
 [![crates.io](https://img.shields.io/crates/v/brine-kiwi.svg?style=flat)](https://crates.io/crates/brine-kiwi)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/license/mit/)
 
 This is a Rust-native implementation of the Kiwi schema, decoder, encoder, compiler and rust code generator. 
 
