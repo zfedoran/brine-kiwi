@@ -7,6 +7,7 @@ homepage.workspace    = true
 repository.workspace  = true
 readme.workspace      = true
 keywords.workspace    = true
+description           = "Schema definitions for the Brine Kiwi language, used by the compiler and runtime"
 
 documentation = "https://docs.rs/brine-kiwi-schema"
 
