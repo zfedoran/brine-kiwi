@@ -1,17 +1,19 @@
-#[derive(Debug, PartialEq)]
+use serde::Serialize;
+
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Schema {
-    pub package:     Option<String>,
+    pub package:    Option<String>,
     pub definitions: Vec<Definition>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum DefinitionKind {
     Enum    = 0,
     Struct  = 1,
     Message = 2,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Field {
     pub name:           String,
     pub line:           usize,
@@ -22,7 +24,7 @@ pub struct Field {
     pub reserved_index: i32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Definition {
     pub name:    String,
     pub line:    usize,

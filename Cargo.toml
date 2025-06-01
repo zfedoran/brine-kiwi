@@ -1,11 +1,29 @@
-[package]
+[workspace]
+resolver = "2"
+members = [ "schema", "sdk", "compiler", "cli", "example" ]
+
+[workspace.package]
 name = "brine-kiwi"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+homepage = "https://madebyevan.com/figma/"
+description = "Kiwi is a schema-based binary format for efficiently encoding trees of data."
+repository = "https://github.com/zfedoran/brine-kiwi"
+readme = "./README.md"
+keywords = ["kiwi", "figma", "proto"]
 
-[dependencies]
-kiwi-schema = "0.2.1"
-lazy_static = "1.5.0"
-regex = "1.11.1"
-serde_json = "1.0.138"
-thiserror = "2.0.12"
+[workspace.dependencies]
+# Local workspace members
+brine-kiwi          = { version = "0.1.0", path = "sdk" }
+brine-kiwi-schema   = { version = "0.1.0", path = "schema" }
+brine-kiwi-compiler = { version = "0.1.0", path = "compiler" }
+brine-kiwi-cli      = { version = "0.1.0", path = "cli" }
+
+# Third-party crates 
+lazy_static   = "1.5.0"
+regex         = "1.11.1"
+serde_json    = "1.0.138"
+serde         = "1.0.145"
+thiserror     = "2.0.12"
+clap          = "4.1.6"

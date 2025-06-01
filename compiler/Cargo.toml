@@ -1,0 +1,20 @@
+[package]
+name                  = "brine-kiwi-compiler"
+version.workspace     = true
+edition.workspace     = true
+license.workspace     = true
+homepage.workspace    = true
+repository.workspace  = true
+readme.workspace      = true
+keywords.workspace    = true
+
+documentation = "https://docs.rs/brine-kiwi-compiler"
+
+[dependencies]
+brine-kiwi-schema.workspace = true
+
+lazy_static.workspace  = true
+regex.workspace        = true
+thiserror.workspace    = true
+serde_json.workspace   = true
+serde = { workspace = true, features = ["derive"] }

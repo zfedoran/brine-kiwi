@@ -1,5 +1,5 @@
 use crate::error::KiwiError;
-use kiwi_schema::Value;
+use brine_kiwi_schema::Value;
 
 /// All Kiwi‐derived types must return `Result<Self, KiwiError>`.
 /// We require `Sized` so that `Self` can be constructed.

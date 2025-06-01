@@ -1,4 +1,4 @@
-use kiwi_schema::ByteBuffer;
+use brine_kiwi_schema::ByteBuffer;
 use crate::{
     types::{DefinitionKind, Field, Schema},
     verifier::{verify_schema, NATIVE_TYPES},

@@ -1,0 +1,21 @@
+[package]
+name                  = "brine-kiwi-cli"
+version.workspace     = true
+edition.workspace     = true
+license.workspace     = true
+homepage.workspace    = true
+repository.workspace  = true
+readme.workspace      = true
+keywords.workspace    = true
+
+documentation = "https://docs.rs/brine-kiwi-cli"
+
+[[bin]]
+name = "bkiwi"
+path = "src/main.rs"
+
+[dependencies]
+brine-kiwi-compiler.workspace = true
+brine-kiwi.workspace          = true
+
+clap = { workspace = true, features = ["derive"] }

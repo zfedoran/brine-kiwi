@@ -1,7 +1,6 @@
 #![cfg(test)]
 
-use brine_kiwi::{
-    gen_rust::compile_schema_to_rust,
+use brine_kiwi_compiler::{
     parser::parse_schema,
     tokenizer::tokenize_schema,
     types::DefinitionKind,
@@ -93,6 +92,4 @@ fn test_parse_schema() {
     assert_eq!(message_def.fields[2].is_array, true);
     assert_eq!(message_def.fields[2].reserved_index, 3);
 
-    let rust_code = compile_schema_to_rust(&schema);
-    println!("Generated Rust code:\n{}", rust_code);
 }
