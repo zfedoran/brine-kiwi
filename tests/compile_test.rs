@@ -30,8 +30,8 @@ fn test_parse_schema() {
     }
     "#;
 
-    let tokens = tokenize_schema(input);
-    let schema = parse_schema(&tokens);
+    let tokens = tokenize_schema(input).expect("tokenize_schema failed");
+    let schema = parse_schema(&tokens).expect("parse_schema failed");
 
     // Check package is None
     assert!(schema.package.is_none());

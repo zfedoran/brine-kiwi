@@ -1,5 +1,9 @@
+use crate::error::KiwiError;
 use kiwi_schema::Value;
 
-pub trait FromKiwi {
-    fn from_kiwi(value: &Value) -> Self;
+/// All Kiwi‐derived types must return `Result<Self, KiwiError>`.
+/// We require `Sized` so that `Self` can be constructed.
+pub trait FromKiwi: Sized {
+    fn from_kiwi(value: &Value) -> Result<Self, KiwiError>;
 }
+

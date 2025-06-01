@@ -1,35 +1,28 @@
 use crate::types::{Definition, DefinitionKind, Schema};
-use std::collections::HashMap;
 use crate::verifier::NATIVE_TYPES;
+use std::collections::HashMap;
 
 /// Converts a string to PascalCase.
-/// - If the string contains underscores, it splits on underscores and converts each word
-///   so that its first letter is uppercase and the rest lowercase.
-/// - If the string does not contain underscores and is fully uppercase, it converts it
-///   so that only the first letter is uppercase and the rest are lowercase.
-/// - Otherwise, it ensures only the first letter is uppercase.
 fn to_pascal_case(s: &str) -> String {
     if s.contains('_') {
         s.split('_')
-         .filter(|word| !word.is_empty())
-         .map(|word| {
-             let mut chars = word.chars();
-             match chars.next() {
-                 None => String::new(),
-                 Some(first) => first.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
-             }
-         })
-         .collect::<String>()
+            .filter(|word| !word.is_empty())
+            .map(|word| {
+                let mut chars = word.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(first) => first.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
+                }
+            })
+            .collect::<String>()
     } else {
         if s == s.to_uppercase() {
-            // If the input is fully uppercase (e.g. "SIGNAL"), convert all letters except the first to lowercase.
             let mut chars = s.chars();
             match chars.next() {
                 None => String::new(),
                 Some(first) => first.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
             }
         } else {
-            // Otherwise, preserve the casing of the rest of the string.
             let mut chars = s.chars();
             match chars.next() {
                 None => String::new(),
@@ -40,8 +33,6 @@ fn to_pascal_case(s: &str) -> String {
 }
 
 /// Converts a string to snake_case.
-/// This implementation avoids inserting underscores between consecutive uppercase letters,
-/// so that acronyms remain intact (e.g. "sessionID" becomes "session_id").
 fn to_snake_case(s: &str) -> String {
     let chars: Vec<char> = s.chars().collect();
     let mut snake = String::new();
@@ -50,8 +41,6 @@ fn to_snake_case(s: &str) -> String {
         if c.is_uppercase() {
             if i > 0 {
                 let prev = chars[i - 1];
-                // Insert an underscore if the previous character is not uppercase,
-                // or if the next character exists and is lowercase.
                 if !prev.is_uppercase() || (i + 1 < chars.len() && chars[i + 1].is_lowercase()) {
                     snake.push('_');
                 }
@@ -65,19 +54,17 @@ fn to_snake_case(s: &str) -> String {
 }
 
 /// Maps schema types to Rust types.
-/// - If `is_array` is true, returns `Vec<T>` or `Option<Vec<T>>` based on `is_message`.
-/// - If `is_message` is true, wraps the type in `Option<T>`.
 fn map_type(type_name: &str, is_message: bool, is_array: bool) -> String {
     let rust_type = match type_name {
-        "bool" => "bool".to_string(),
-        "byte" => "u8".to_string(),
-        "int" => "i32".to_string(),
-        "uint" => "u32".to_string(),
-        "float" => "f32".to_string(),
+        "bool"   => "bool".to_string(),
+        "byte"   => "u8".to_string(),
+        "int"    => "i32".to_string(),
+        "uint"   => "u32".to_string(),
+        "float"  => "f32".to_string(),
         "string" => "String".to_string(),
-        "int64" => "i64".to_string(),
+        "int64"  => "i64".to_string(),
         "uint64" => "u64".to_string(),
-        other => to_pascal_case(other),
+        other    => to_pascal_case(other),
     };
 
     if is_array {
@@ -95,30 +82,27 @@ fn map_type(type_name: &str, is_message: bool, is_array: bool) -> String {
     }
 }
 
-/// Returns the full conversion method call for a given type as a string.
-/// For example, for "string" it returns "as_string().to_string()".
+/// Returns the correct `as_...()` call on a `Value`.
 fn conversion_method(type_name: &str) -> String {
     match type_name {
-        "bool" => "as_bool()".to_string(),
-        "byte" => "as_byte()".to_string(),
-        "int" => "as_int()".to_string(),
-        "uint" => "as_uint()".to_string(),
-        "float" => "as_float()".to_string(),
+        "bool"   => "as_bool()".to_string(),
+        "byte"   => "as_byte()".to_string(),
+        "int"    => "as_int()".to_string(),
+        "uint"   => "as_uint()".to_string(),
+        "float"  => "as_float()".to_string(),
         "string" => "as_string().to_string()".to_string(),
-        "int64" => "as_int64()".to_string(),
+        "int64"  => "as_int64()".to_string(),
         "uint64" => "as_uint64()".to_string(),
-        _ => "as_string()".to_string(), // Default conversion for unsupported types
+        _        => "as_string()".to_string(),
     }
 }
 
-/// Escapes Rust reserved keywords by suffixing with an underscore.
+/// Escape Rust keywords by appending an underscore.
 fn escape_rust_keyword(s: &str) -> String {
     let keywords = [
-        "as", "break", "const", "continue", "crate", "else",
-        "enum", "extern", "false", "fn", "for", "if", "impl",
-        "in", "let", "loop", "match", "mod", "move", "mut",
-        "pub", "ref", "return", "self", "Self", "static",
-        "struct", "super", "trait", "true", "type", "unsafe",
+        "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn",
+        "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
+        "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe",
         "use", "where", "while",
     ];
     if keywords.contains(&s) {
@@ -128,47 +112,51 @@ fn escape_rust_keyword(s: &str) -> String {
     }
 }
 
-/// Compiles the entire schema into Rust type definitions as a string,
-/// including `FromKiwi` implementations and Serde attributes.
+/// Entry point: given a `Schema`, return a `String` containing the entire Rust module.
+/// 
+/// Each generated `from_kiwi(…)` now returns `Result<_, KiwiError>`.
 pub fn compile_schema_to_rust(schema: &Schema) -> String {
     let mut definitions_map: HashMap<String, Definition> = HashMap::new();
     let package = schema.package.clone();
     let mut rust_code: Vec<String> = Vec::new();
 
-    // Start module
-    if let Some(name) = package.clone() {
-        rust_code.push(format!("pub mod {} {{", to_pascal_case(&name)));
+    // If there's a package, wrap everything in a `pub mod PascalCaseName { … }`.
+    if let Some(ref name) = package {
+        rust_code.push(format!("pub mod {} {{", to_pascal_case(name)));
     }
 
-    // Add necessary imports
+    // Always import `Value` and `FromKiwi`.
     rust_code.push("use kiwi_schema::Value;".to_string());
-    rust_code.push("use brine_kiwi::FromKiwi;".to_string());
+    rust_code.push("use brine_kiwi::error::KiwiError;".to_string());
+    rust_code.push("use brine_kiwi::traits::FromKiwi;".to_string());
     rust_code.push("".to_string());
 
-    // Add Serde imports
+    // Serde imports
     rust_code.push("use serde::Serialize;".to_string());
     rust_code.push("use serde_with::skip_serializing_none;".to_string());
     rust_code.push("".to_string());
 
-    // Collect definitions
-    for definition in &schema.definitions {
-        definitions_map.insert(definition.name.clone(), definition.clone());
+    // Build a lookup map from name → Definition
+    for def in &schema.definitions {
+        definitions_map.insert(def.name.clone(), def.clone());
     }
 
+    // Now generate code for each definition
     for definition in &schema.definitions {
         match definition.kind {
             DefinitionKind::Enum => {
                 rust_code.push(generate_enum(definition));
-            },
+            }
             DefinitionKind::Struct => {
                 rust_code.push(generate_struct(definition, false));
-            },
+            }
             DefinitionKind::Message => {
                 rust_code.push(generate_struct(definition, true));
-            },
+            }
         }
     }
 
+    // Close package block if needed
     if package.is_some() {
         rust_code.push("}".to_string());
     }
@@ -176,18 +164,16 @@ pub fn compile_schema_to_rust(schema: &Schema) -> String {
     rust_code.join("\n")
 }
 
-/// Generates Rust code for an enum based on the schema definition.
-/// Derives Serialize for enums.
+/// Generates a Rust enum + `FromKiwi` impl that returns `Result<…, KiwiError>`.
 fn generate_enum(definition: &Definition) -> String {
     let enum_name = to_pascal_case(&definition.name);
     let mut variants = Vec::new();
-
     for field in &definition.fields {
-        let variant_name = escape_rust_keyword(&to_pascal_case(&field.name));
+        let var_name = escape_rust_keyword(&to_pascal_case(&field.name));
         if field.is_deprecated {
-            variants.push(format!("    #[deprecated]\n    {},", variant_name));
+            variants.push(format!("    #[deprecated]\n    {},", var_name));
         } else {
-            variants.push(format!("    {},", variant_name));
+            variants.push(format!("    {},", var_name));
         }
     }
 
@@ -200,13 +186,10 @@ fn generate_enum(definition: &Definition) -> String {
     );
 
     let from_kiwi_impl = generate_enum_from_kiwi(definition);
-
     format!("{}\n{}", enum_def, from_kiwi_impl)
 }
 
-/// Generates the `FromKiwi` implementation for an enum.
-/// The match arms compare against the original (uppercased) strings,
-/// but the returned variant names are in PascalCase.
+/// Generates the `FromKiwi` impl for an enum, returning `Result<_, KiwiError>`.
 fn generate_enum_from_kiwi(definition: &Definition) -> String {
     let enum_name = to_pascal_case(&definition.name);
     let mut match_arms = Vec::new();
@@ -214,22 +197,28 @@ fn generate_enum_from_kiwi(definition: &Definition) -> String {
     for field in &definition.fields {
         let variant_name = escape_rust_keyword(&to_pascal_case(&field.name));
         match_arms.push(format!(
-            "        \"{}\" => {}::{},",
+            "            \"{}\" => Ok({}::{}),",
             field.name.to_uppercase(),
             enum_name,
             variant_name
         ));
     }
-    // Default to the first variant if no match is found.
-    let default_variant = escape_rust_keyword(&to_pascal_case(&definition.fields[0].name));
+
+    // If no match, return Err(KiwiError::InvalidEnumVariant(_))
     match_arms.push(format!(
-        "        _ => {}::{},",
-        enum_name,
-        default_variant
+        "            other => Err(KiwiError::InvalidEnumVariant(other.to_string())),"
     ));
 
     let impl_block = format!(
-        "impl FromKiwi for {} {{\n    fn from_kiwi(value: &Value) -> Self {{\n        let field = value.as_string();\n        match field {{\n{}\n        }}\n    }}\n}}\n",
+        r#"impl FromKiwi for {} {{
+    fn from_kiwi(value: &Value) -> Result<Self, KiwiError> {{
+        let s = value.as_string();
+        match s.as_str() {{
+{}
+        }}
+    }}
+}}
+"#,
         enum_name,
         match_arms.join("\n")
     );
@@ -237,161 +226,216 @@ fn generate_enum_from_kiwi(definition: &Definition) -> String {
     impl_block
 }
 
-/// Generates Rust code for a struct or message based on the schema definition.
-/// Applies `#[skip_serializing_none]` and derives Serialize.
-/// If `is_message` is true, fields are wrapped in `Option<T>`.
+/// Generates a Rust struct/message + `FromKiwi` impl that returns `Result<_, KiwiError>`.
 fn generate_struct(definition: &Definition, is_message: bool) -> String {
     let struct_name = to_pascal_case(&definition.name);
-    let mut fields = Vec::new();
+    let mut fields_code = Vec::new();
 
     for field in &definition.fields {
-        // The JSON key remains as the original, but the Rust field name is converted to snake_case.
-        let rust_field_name = escape_rust_keyword(&to_snake_case(&field.name));
-        let field_type = match &field.type_ {
-            Some(t) => map_type(t, is_message && definition.kind == DefinitionKind::Message, field.is_array),
-            None => {
-                if definition.kind == DefinitionKind::Enum {
-                    "i32".to_string() // Adjust as necessary.
-                } else {
-                    "String".to_string() // Default type.
-                }
-            },
+        let rust_name = escape_rust_keyword(&to_snake_case(&field.name));
+        let field_type = if let Some(ref t) = field.type_ {
+            map_type(t, is_message && definition.kind == DefinitionKind::Message, field.is_array)
+        } else {
+            // If no type, treat as i32 for enums or String for fallback
+            if definition.kind == DefinitionKind::Enum {
+                "i32".to_string()
+            } else {
+                "String".to_string()
+            }
         };
-        let mut field_line = String::new();
+
+        let mut line = String::new();
         if field.is_deprecated {
-            field_line.push_str("    #[deprecated]\n");
+            line.push_str("    #[deprecated]\n");
         }
-        field_line.push_str(&format!("    pub {}: {},", rust_field_name, field_type));
-        fields.push(field_line);
+        line.push_str(&format!("    pub {}: {},", rust_name, field_type));
+        fields_code.push(line);
     }
 
-    // Apply `#[skip_serializing_none]` and derive Serialize along with existing traits
     let derived = "#[derive(Debug, Clone, PartialEq, Default, Serialize)]";
-    let serde_attribute = "#[skip_serializing_none]";
+    let serde_attr = "#[skip_serializing_none]";
     let struct_def = format!(
         "{}\n{}\npub struct {} {{\n{}\n}}\n",
-        serde_attribute,
+        serde_attr,
         derived,
         struct_name,
-        fields.join("\n")
+        fields_code.join("\n")
     );
 
     let from_kiwi_impl = generate_struct_from_kiwi(definition, is_message);
-
     format!("{}\n{}", struct_def, from_kiwi_impl)
 }
 
-/// Generates the `FromKiwi` implementation for a struct or message.
+/// Generates the `FromKiwi` impl for a struct/message, returning `Result<..., KiwiError>`.
 fn generate_struct_from_kiwi(definition: &Definition, is_message: bool) -> String {
     let struct_name = to_pascal_case(&definition.name);
-    let instance_name = to_snake_case(&struct_name);
-    let mut field_assignments = Vec::new();
+    let instance = to_snake_case(&struct_name);
+
+    let mut lines = Vec::new();
+    lines.push(format!("impl FromKiwi for {} {{", struct_name));
+    lines.push("    fn from_kiwi(value: &Value) -> Result<Self, KiwiError> {".into());
+    lines.push(format!("        let mut {} = Self::default();", instance));
+    lines.push("".into());
 
     for field in &definition.fields {
-        let original_field_name = &field.name; // For JSON keys.
-        let rust_field_name = escape_rust_keyword(&to_snake_case(&field.name)); // For Rust identifiers in snake_case.
+        let original = &field.name;
+        let rust_name = escape_rust_keyword(&to_snake_case(original));
         let type_name = field.type_.as_deref().unwrap_or("");
         let is_array = field.is_array;
-        let is_base_type = NATIVE_TYPES.contains(&type_name);
+        let is_base = NATIVE_TYPES.contains(&type_name);
 
         if is_array {
-            if is_base_type {
+            // Handle array of primitives vs array of messages
+            if is_base {
                 if is_message && definition.kind == DefinitionKind::Message {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        let mut vec = Vec::new();\n        for item in value.as_array() {{\n            vec.push(item.{});\n        }}\n        {}.{} = Some(vec);\n    }}",
-                        original_field_name,
-                        conversion_method(type_name),
-                        instance_name,
-                        rust_field_name
+                    // Option<Vec<primitive>>
+                    lines.push(format!(
+                        "        if let Some(arr) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!(
+                        "            let mut tmp = Vec::new();"
+                    ));
+                    lines.push(format!(
+                        "            for item in arr.as_array() {{ tmp.push(item.{}); }}",
+                        conversion_method(type_name)
+                    ));
+                    lines.push(format!(
+                        "            {}.{} = Some(tmp);",
+                        instance, rust_name
+                    ));
+                    lines.push("        }".into());
                 } else {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        let mut vec = Vec::new();\n        for item in value.as_array() {{\n            vec.push(item.{});\n        }}\n        {}.{} = vec;\n    }} else {{\n        panic!(\"Missing required field {}\");\n    }}",
-                        original_field_name,
-                        conversion_method(type_name),
-                        instance_name,
-                        rust_field_name,
-                        original_field_name
+                    // Required Vec<primitive>
+                    lines.push(format!(
+                        "        if let Some(arr) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!(
+                        "            let mut tmp = Vec::new();"
+                    ));
+                    lines.push(format!(
+                        "            for item in arr.as_array() {{ tmp.push(item.{}); }}",
+                        conversion_method(type_name)
+                    ));
+                    lines.push(format!(
+                        "            {}.{} = tmp;",
+                        instance, rust_name
+                    ));
+                    lines.push("        } else {".into());
+                    lines.push(format!(
+                        "            return Err(KiwiError::MissingField(\"{}\".into()));",
+                        original
+                    ));
+                    lines.push("        }".into());
                 }
             } else {
+                // array of nested messages
                 if is_message && definition.kind == DefinitionKind::Message {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        let mut vec = Vec::new();\n        for item in value.as_array() {{\n            vec.push({}::from_kiwi(item));\n        }}\n        {}.{} = Some(vec);\n    }}",
-                        original_field_name,
-                        to_pascal_case(type_name),
-                        instance_name,
-                        rust_field_name
+                    // Option<Vec<MessageType>>
+                    lines.push(format!(
+                        "        if let Some(arr) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!("            let mut tmp = Vec::new();"));
+                    lines.push(format!(
+                        "            for item in arr.as_array() {{ tmp.push({}::from_kiwi(item)?); }}",
+                        to_pascal_case(type_name)
+                    ));
+                    lines.push(format!(
+                        "            {}.{} = Some(tmp);",
+                        instance, rust_name
+                    ));
+                    lines.push("        }".into());
                 } else {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        let mut vec = Vec::new();\n        for item in value.as_array() {{\n            vec.push({}::from_kiwi(item));\n        }}\n        {}.{} = vec;\n    }} else {{\n        panic!(\"Missing required field {}\");\n    }}",
-                        original_field_name,
-                        to_pascal_case(type_name),
-                        instance_name,
-                        rust_field_name,
-                        original_field_name
+                    // Required Vec<MessageType>
+                    lines.push(format!(
+                        "        if let Some(arr) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!("            let mut tmp = Vec::new();"));
+                    lines.push(format!(
+                        "            for item in arr.as_array() {{ tmp.push({}::from_kiwi(item)?); }}",
+                        to_pascal_case(type_name)
+                    ));
+                    lines.push(format!(
+                        "            {}.{} = tmp;",
+                        instance, rust_name
+                    ));
+                    lines.push("        } else {".into());
+                    lines.push(format!(
+                        "            return Err(KiwiError::MissingField(\"{}\".into()));",
+                        original
+                    ));
+                    lines.push("        }".into());
                 }
             }
         } else {
+            // Single value (primitive vs nested, required vs optional)
             if is_message && definition.kind == DefinitionKind::Message {
-                if is_base_type {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        {}.{} = Some(value.{});\n    }}",
-                        original_field_name,
-                        instance_name,
-                        rust_field_name,
-                        conversion_method(type_name)
+                // Option<...>
+                if is_base {
+                    lines.push(format!(
+                        "        if let Some(val) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!(
+                        "            {}.{} = Some(val.{});",
+                        instance, rust_name, conversion_method(type_name)
+                    ));
+                    lines.push("        }".into());
                 } else {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        {}.{} = Some({}::from_kiwi(value));\n    }}",
-                        original_field_name,
-                        instance_name,
-                        rust_field_name,
-                        to_pascal_case(type_name)
+                    lines.push(format!(
+                        "        if let Some(val) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!(
+                        "            {}.{} = Some({}::from_kiwi(val)?);",
+                        instance, rust_name, to_pascal_case(type_name)
+                    ));
+                    lines.push("        }".into());
                 }
             } else {
-                if is_base_type {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        {}.{} = value.{};\n    }} else {{\n        panic!(\"Missing required field {}\");\n    }}",
-                        original_field_name,
-                        instance_name,
-                        rust_field_name,
-                        conversion_method(type_name),
-                        original_field_name
+                // Required field
+                if is_base {
+                    lines.push(format!(
+                        "        if let Some(val) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!(
+                        "            {}.{} = val.{};",
+                        instance, rust_name, conversion_method(type_name)
+                    ));
+                    lines.push("        } else {".into());
+                    lines.push(format!(
+                        "            return Err(KiwiError::MissingField(\"{}\".into()));",
+                        original
+                    ));
+                    lines.push("        }".into());
                 } else {
-                    field_assignments.push(format!(
-                        "    if let Some(value) = value.get(\"{}\") {{\n        {}.{} = {}::from_kiwi(value);\n    }} else {{\n        panic!(\"Missing required field {}\");\n    }}",
-                        original_field_name,
-                        instance_name,
-                        rust_field_name,
-                        to_pascal_case(type_name),
-                        original_field_name
+                    lines.push(format!(
+                        "        if let Some(val) = value.get(\"{}\") {{",
+                        original
                     ));
+                    lines.push(format!(
+                        "            {}.{} = {}::from_kiwi(val)?;",
+                        instance, rust_name, to_pascal_case(type_name)
+                    ));
+                    lines.push("        } else {".into());
+                    lines.push(format!(
+                        "            return Err(KiwiError::MissingField(\"{}\".into()));",
+                        original
+                    ));
+                    lines.push("        }".into());
                 }
             }
         }
+
+        lines.push("".into());
     }
 
-    let mut impl_lines = Vec::new();
-
-    impl_lines.push(format!("impl FromKiwi for {} {{", struct_name));
-    impl_lines.push("    fn from_kiwi(value: &Value) -> Self {".to_string());
-    impl_lines.push(format!("        let mut {} = Self::default();", instance_name));
-    impl_lines.push("".to_string());
-
-    for assignment in field_assignments {
-        impl_lines.push(assignment);
-        impl_lines.push("".to_string());
-    }
-
-    impl_lines.push(format!("        {}", instance_name));
-    impl_lines.push("    }".to_string());
-    impl_lines.push("}".to_string());
-
-    impl_lines.join("\n")
+    lines.push(format!("        Ok({})", instance));
+    lines.push("    }".into());
+    lines.push("}".into());
+    lines.join("\n")
 }

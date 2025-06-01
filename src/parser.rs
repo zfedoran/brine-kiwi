@@ -2,33 +2,34 @@ use crate::{
     tokenizer::Token,
     types::{Definition, DefinitionKind, Field, Schema},
     utils::{error, quote},
+    error::KiwiError,
 };
-
 use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
-    static ref identifier: Regex = Regex::new(r"^[A-Za-z_][A-Za-z0-9_]*$").unwrap();
-    static ref equals: Regex = Regex::new(r"^=$").unwrap();
-    static ref semicolon: Regex = Regex::new(r"^;$").unwrap();
-    static ref integer: Regex = Regex::new(r"^-?\d+$").unwrap();
-    static ref left_brace: Regex = Regex::new(r"^\{$").unwrap();
-    static ref right_brace: Regex = Regex::new(r"^\}$").unwrap();
-    static ref array_token: Regex = Regex::new(r"^\[\]$").unwrap();
-    static ref enum_keyword: Regex = Regex::new(r"^enum$").unwrap();
-    static ref struct_keyword: Regex = Regex::new(r"^struct$").unwrap();
-    static ref message_keyword: Regex = Regex::new(r"^message$").unwrap();
-    static ref package_keyword: Regex = Regex::new(r"^package$").unwrap();
-    static ref deprecated_token: Regex = Regex::new(r"^\[deprecated\]$").unwrap();
-    static ref end_of_file: Regex = Regex::new(r"^$").unwrap();
+    static ref IDENTIFIER:       Regex = Regex::new(r"^[A-Za-z_][A-Za-z0-9_]*$").unwrap();
+    static ref EQUALS:           Regex = Regex::new(r"^=$").unwrap();
+    static ref SEMICOLON:        Regex = Regex::new(r"^;$").unwrap();
+    static ref INTEGER:          Regex = Regex::new(r"^-?\d+$").unwrap();
+    static ref LEFT_BRACE:       Regex = Regex::new(r"^\{$").unwrap();
+    static ref RIGHT_BRACE:      Regex = Regex::new(r"^\}$").unwrap();
+    static ref ARRAY_TOKEN:      Regex = Regex::new(r"^\[\]$").unwrap();
+    static ref ENUM_KEYWORD:     Regex = Regex::new(r"^enum$").unwrap();
+    static ref STRUCT_KEYWORD:   Regex = Regex::new(r"^struct$").unwrap();
+    static ref MESSAGE_KEYWORD:  Regex = Regex::new(r"^message$").unwrap();
+    static ref PACKAGE_KEYWORD:  Regex = Regex::new(r"^package$").unwrap();
+    static ref DEPRECATED_TOKEN: Regex = Regex::new(r"^\[deprecated\]$").unwrap();
+    static ref EOF:              Regex = Regex::new(r"^$").unwrap();
 }
 
-pub fn parse_schema(tokens: &[Token]) -> Schema {
-    let mut definitions = Vec::new();
+/// Now returns `Result<Schema, KiwiError>`.
+pub fn parse_schema(tokens: &[Token]) -> Result<Schema, KiwiError> {
+    let mut definitions  = Vec::new();
     let mut package_text = None;
-    let mut index = 0;
+    let mut index        = 0;
 
-    fn current_token(tokens: &[Token], index: usize) -> &Token {
+    fn current_token<'a>(tokens: &'a [Token], index: usize) -> &'a Token {
         tokens.get(index).expect("Unexpected end of tokens")
     }
 
@@ -41,109 +42,104 @@ pub fn parse_schema(tokens: &[Token]) -> Schema {
         }
     }
 
-    fn expect(tokens: &[Token], index: &mut usize, test: &Regex, expected: &str) {
+    fn expect(tokens: &[Token], index: &mut usize, test: &Regex, expected: &str) -> Result<(), KiwiError> {
         if !eat(tokens, index, test) {
-            let token = current_token(tokens, *index);
-            error(
-                &format!("Expected {} but found {}", expected, quote(&token.text)),
-                token.line,
-                token.column,
-            );
+            let tok = current_token(tokens, *index);
+            return Err(error(
+                &format!("Expected {} but found {}", expected, quote(&tok.text)),
+                tok.line,
+                tok.column,
+            ));
         }
+        Ok(())
     }
 
-    fn unexpected_token(tokens: &[Token], index: &mut usize) -> ! {
-        let token = current_token(tokens, *index);
+    fn unexpected_token(tokens: &[Token], index: &mut usize) -> KiwiError {
+        let tok = current_token(tokens, *index);
         error(
-            &format!("Unexpected token {}", quote(&token.text)),
-            token.line,
-            token.column,
-        );
+            &format!("Unexpected token {}", quote(&tok.text)),
+            tok.line,
+            tok.column,
+        )
     }
 
     // Handle package declaration
-    if eat(tokens, &mut index, &package_keyword) {
+    if eat(tokens, &mut index, &PACKAGE_KEYWORD) {
         if index >= tokens.len() {
-            error("Expected identifier after package", 0, 0);
+            return Err(error("Expected identifier after package", 0, 0));
         }
-        let pkg_token = current_token(tokens, index);
-        expect(tokens, &mut index, &identifier, "identifier");
-        package_text = Some(pkg_token.text.clone());
-        expect(tokens, &mut index, &semicolon, "\";\"");
+        let pkg_tok = current_token(tokens, index);
+        expect(tokens, &mut index, &IDENTIFIER, "identifier")?;
+        package_text = Some(pkg_tok.text.clone());
+        expect(tokens, &mut index, &SEMICOLON, "\";\"")?;
     }
 
-    // Parse definitions
-    while index < tokens.len() && !eat(tokens, &mut index, &end_of_file) {
-        let kind = if eat(tokens, &mut index, &enum_keyword) {
+    // Parse definitions one by one
+    while index < tokens.len() && !eat(tokens, &mut index, &EOF) {
+        let kind = if eat(tokens, &mut index, &ENUM_KEYWORD) {
             DefinitionKind::Enum
-        } else if eat(tokens, &mut index, &struct_keyword) {
+        } else if eat(tokens, &mut index, &STRUCT_KEYWORD) {
             DefinitionKind::Struct
-        } else if eat(tokens, &mut index, &message_keyword) {
+        } else if eat(tokens, &mut index, &MESSAGE_KEYWORD) {
             DefinitionKind::Message
         } else {
-            unexpected_token(tokens, &mut index);
+            return Err(unexpected_token(tokens, &mut index));
         };
 
-        // All definitions start with a name
-        let name_token = current_token(tokens, index);
-        expect(tokens, &mut index, &identifier, "identifier");
-        expect(tokens, &mut index, &left_brace, "\"{\"");
+        // Definition name
+        let name_tok = current_token(tokens, index);
+        expect(tokens, &mut index, &IDENTIFIER, "identifier")?;
+        expect(tokens, &mut index, &LEFT_BRACE, "\"{\"")?;
 
-        // Parse fields
+        // Collect fields
         let mut fields = Vec::new();
-        while !eat(tokens, &mut index, &right_brace) {
-            let mut type_opt = None;
-            let mut is_array = false;
+        while !eat(tokens, &mut index, &RIGHT_BRACE) {
+            let mut type_opt     = None;
+            let mut is_array     = false;
             let mut is_deprecated = false;
 
             if kind != DefinitionKind::Enum {
-                // Get type
-                let type_token = current_token(tokens, index);
-                expect(tokens, &mut index, &identifier, "identifier");
-                if eat(tokens, &mut index, &array_token) {
+                // Read the type token
+                let t_tok = current_token(tokens, index);
+                expect(tokens, &mut index, &IDENTIFIER, "identifier")?;
+                if eat(tokens, &mut index, &ARRAY_TOKEN) {
                     is_array = true;
                 }
-                type_opt = Some(type_token.text.clone());
+                type_opt = Some(t_tok.text.clone());
             }
 
             // Field name
-            let field_token = current_token(tokens, index);
-            expect(tokens, &mut index, &identifier, "identifier");
+            let f_tok = current_token(tokens, index);
+            expect(tokens, &mut index, &IDENTIFIER, "identifier")?;
 
-            // Structs don't have explicit values
+            // Value (either explicit or auto‐increment for structs)
             let value = if kind != DefinitionKind::Struct {
-                expect(tokens, &mut index, &equals, "\"=\"");
-                let value_token = current_token(tokens, index);
-                expect(tokens, &mut index, &integer, "integer");
-                let parsed = value_token.text.parse::<i32>().unwrap_or_else(|_| {
+                expect(tokens, &mut index, &EQUALS, "\"=\"")?;
+                let v_tok = current_token(tokens, index);
+                expect(tokens, &mut index, &INTEGER, "integer")?;
+                v_tok.text.parse::<i32>().map_err(|_| {
                     error(
-                        &format!("Invalid integer {}", quote(&value_token.text)),
-                        value_token.line,
-                        value_token.column,
+                        &format!("Invalid integer {}", quote(&v_tok.text)),
+                        v_tok.line,
+                        v_tok.column,
                     )
-                });
-                parsed
+                })?
             } else {
-                // For struct, value is fields.len() + 1
+                // For structs, assign in‐order values
                 fields.len() as i32 + 1
             };
 
-            // Check for deprecated
-            if eat(tokens, &mut index, &deprecated_token) {
+            // Deprecated?
+            if eat(tokens, &mut index, &DEPRECATED_TOKEN) {
                 if kind != DefinitionKind::Message {
                     let deprecated = current_token(tokens, index - 1);
-                    error(
-                        "Cannot deprecate this field",
-                        deprecated.line,
-                        deprecated.column,
-                    );
+                    return Err(error("Cannot deprecate this field", deprecated.line, deprecated.column));
                 }
                 is_deprecated = true;
             }
 
-            expect(tokens, &mut index, &semicolon, "\";\"");
+            expect(tokens, &mut index, &SEMICOLON, "\";\"")?;
 
-            // Set value if not struct
             let final_value = if kind != DefinitionKind::Struct {
                 value
             } else {
@@ -151,10 +147,10 @@ pub fn parse_schema(tokens: &[Token]) -> Schema {
             };
 
             fields.push(Field {
-                name: field_token.text.clone(),
-                line: field_token.line,
-                column: field_token.column,
-                type_: type_opt,
+                name:           f_tok.text.clone(),
+                line:           f_tok.line,
+                column:         f_tok.column,
+                type_:          type_opt.clone(),
                 is_array,
                 is_deprecated,
                 reserved_index: final_value,
@@ -162,17 +158,16 @@ pub fn parse_schema(tokens: &[Token]) -> Schema {
         }
 
         definitions.push(Definition {
-            name: name_token.text.clone(),
-            line: name_token.line,
-            column: name_token.column,
+            name:    name_tok.text.clone(),
+            line:    name_tok.line,
+            column:  name_tok.column,
             kind,
             fields,
         });
     }
 
-    Schema {
-        package: package_text,
+    Ok(Schema {
+        package:    package_text,
         definitions,
-    }
+    })
 }
-
